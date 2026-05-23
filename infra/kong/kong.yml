@@ -1,0 +1,73 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: user-service
+    url: http://user-service:8080
+    routes:
+      - name: users-rest
+        paths:
+          - /api/users
+        strip_path: true
+
+  - name: appointments-service
+    url: http://appointments-service:8080
+    routes:
+      - name: appointments-rest
+        paths:
+          - /api/appointments
+        strip_path: true
+
+  - name: payments-service
+    url: http://payments-service:8080
+    routes:
+      - name: payments-rest
+        paths:
+          - /api/payments
+        strip_path: true
+
+  - name: medical-history-service
+    url: http://medical-history-service:8080
+    routes:
+      - name: medical-history-graphql
+        paths:
+          - /graphql/medical-history
+        strip_path: true
+
+  - name: video-call-service
+    url: http://video-call-service:8080
+    routes:
+      - name: video-call-websocket
+        paths:
+          - /ws/video
+        strip_path: true
+        protocols:
+          - http
+          - https
+
+plugins:
+  - name: prometheus
+
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Authorization
+        - Content-Type
+      exposed_headers:
+        - X-Request-Id
+      credentials: true
+      max_age: 3600
+
+  - name: rate-limiting
+    config:
+      minute: 120
+      policy: local

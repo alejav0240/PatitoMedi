@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS appointments (
+  id UUID PRIMARY KEY,
+  patient_id UUID NOT NULL,
+  doctor_id UUID NOT NULL,
+  starts_at TIMESTAMPTZ NOT NULL,
+  ends_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS slots (
+  id UUID PRIMARY KEY,
+  doctor_id UUID NOT NULL,
+  starts_at TIMESTAMPTZ NOT NULL,
+  ends_at TIMESTAMPTZ NOT NULL,
+  is_available BOOLEAN NOT NULL DEFAULT true
+);
