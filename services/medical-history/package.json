@@ -13,6 +13,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@apollo/server": "^5.5.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "graphql": "^16.14.0",
