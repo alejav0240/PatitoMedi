@@ -47,14 +47,29 @@ services:
       - backend
 
   user-service:
-    image: hashicorp/http-echo:1.0
+    build:
+      context: ./services/user
     container_name: ${CONTAINER_PREFIX:-patitomedi}-user-service
-    command: ["-listen=:8080", "-text={\"service\":\"user\",\"stack\":\"golang\",\"protocol\":\"REST\"}"]
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgres://${USERS_DB_USER:-users_app}:${USERS_DB_PASSWORD:-users_pass}@users-db:5432/${USERS_DB_NAME:-users}?sslmode=disable
+      JWT_SECRET: ${USER_SERVICE_JWT_SECRET:-dev-user-service-secret-change-me}
+      JWT_ISSUER: ${USER_SERVICE_JWT_ISSUER:-patitomedi-user-service}
+      JWT_TTL: ${USER_SERVICE_JWT_TTL:-24h}
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_ENABLED: ${USER_SERVICE_KAFKA_ENABLED:-true}
+      KAFKA_USER_TOPIC: ${USER_SERVICE_KAFKA_USER_TOPIC:-user-registered}
     depends_on:
       users-db:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - backend
 

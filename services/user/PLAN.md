@@ -69,3 +69,16 @@ Consume:
 3. Auth y JWT.
 4. Eventos Kafka.
 5. Observabilidad y tests.
+
+## Estado Actual
+
+- [x] Bootstrap Go con servidor HTTP.
+- [x] Configuracion por variables de entorno.
+- [x] Conexion PostgreSQL.
+- [x] Schema inicial con pacientes, medicos, roles y sesiones.
+- [x] Registro de pacientes y medicos.
+- [x] Login, JWT, logout y `/me`.
+- [x] Publicacion Kafka para eventos de usuario y sesion.
+- [x] `/health` y `/metrics`.
+- [x] Tests unitarios para JWT, validacion de registro y middleware de auth.
+- [ ] Verificacion runtime pendiente con `docker compose build user-service` y `docker compose up` cuando Docker Hub y dependencias Go esten disponibles.
