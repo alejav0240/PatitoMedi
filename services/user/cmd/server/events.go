@@ -34,11 +34,11 @@ func (p *eventProducer) Publish(ctx context.Context, topic string, key string, p
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("event marshal failed: %v", err)
+		log.Printf("Error al serializar evento: %v", err)
 		return
 	}
 	if err := p.writer.WriteMessages(ctx, kafka.Message{Topic: topic, Key: []byte(key), Value: body, Time: time.Now()}); err != nil {
-		log.Printf("event publish failed topic=%s: %v", topic, err)
+		log.Printf("Error al publicar mensaje en topic=%s: %v", topic, err)
 	}
 }
 

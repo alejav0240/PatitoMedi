@@ -16,7 +16,7 @@ func main() {
 
 	db, err := sql.Open("pgx", cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("database open failed: %v", err)
+		log.Fatalf("Base de datos no disponible: %v", err)
 	}
 	defer db.Close()
 
@@ -27,7 +27,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
-		log.Fatalf("database connection failed: %v", err)
+		log.Fatalf("Conexión a la base de datos fallida: %v", err)
 	}
 
 	a := newApp(cfg, db)
@@ -41,6 +41,6 @@ func main() {
 
 	log.Printf("user-service listening on :%s", cfg.Port)
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalf("server failed: %v", err)
+		log.Fatalf("Servidor fallido: %v", err)
 	}
 }

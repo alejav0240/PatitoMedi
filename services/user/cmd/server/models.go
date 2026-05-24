@@ -53,10 +53,10 @@ func validateRegisterRequest(req registerRequest, role string) string {
 		return "email, password and full_name are required"
 	}
 	if len(req.Password) < 8 {
-		return "password must be at least 8 characters"
+		return "la contraseña debe tener al menos 8 caracteres"
 	}
 	if role == roleDoctor && req.Specialty == "" {
-		return "specialty is required for doctors"
+		return "la especialidad es requerida para los médicos"
 	}
 	return ""
 }

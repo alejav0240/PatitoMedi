@@ -35,23 +35,23 @@ func (a *app) register(w http.ResponseWriter, r *http.Request, role string) {
 		return
 	}
 	if _, _, err := a.store.FindUserByEmail(r.Context(), req.Email); err == nil {
-		writeError(w, http.StatusConflict, "email already exists")
+		writeError(w, http.StatusConflict, "El email ya existe")
 		return
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not hash password")
+		writeError(w, http.StatusInternalServerError, "No se pudo hashear la contraseña")
 		return
 	}
 
 	user, err := a.store.CreateUser(r.Context(), role, req, string(hash))
 	if err != nil {
 		if isUniqueViolation(err) {
-			writeError(w, http.StatusConflict, "email already exists")
+			writeError(w, http.StatusConflict, "El email ya existe")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "could not create user")
+		writeError(w, http.StatusInternalServerError, "No se pudo crear el usuario")
 		return
 	}
 
@@ -68,32 +68,32 @@ func (a *app) login(w http.ResponseWriter, r *http.Request) {
 
 	email := normalizeEmail(req.Email)
 	if email == "" || req.Password == "" {
-		writeError(w, http.StatusBadRequest, "email and password are required")
+		writeError(w, http.StatusBadRequest, "El email y la contraseña son requeridos")
 		return
 	}
 
 	user, passwordHash, err := a.store.FindUserByEmail(r.Context(), email)
 	if err != nil {
 		a.metrics.loginsFailed.Add(1)
-		writeError(w, http.StatusUnauthorized, "invalid credentials")
+		writeError(w, http.StatusUnauthorized, "Credenciales inválidas")
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)) != nil {
 		a.metrics.loginsFailed.Add(1)
-		writeError(w, http.StatusUnauthorized, "invalid credentials")
+		writeError(w, http.StatusUnauthorized, "Credenciales inválidas")
 		return
 	}
 
 	token, err := a.signToken(user)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not sign token")
+		writeError(w, http.StatusInternalServerError, "No se pudo firmar el token")
 		return
 	}
 
 	sessionID := newID()
 	expiresAt := time.Now().Add(a.cfg.JWTTTL)
 	if err := a.store.CreateSession(r.Context(), sessionID, user.ID, user.Role, expiresAt); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not create session")
+		writeError(w, http.StatusInternalServerError, "No se pudo crear la sesión")
 		return
 	}
 
@@ -158,7 +158,7 @@ func (a *app) listDoctors(w http.ResponseWriter, r *http.Request) {
 func (a *app) getDoctor(w http.ResponseWriter, r *http.Request) {
 	user, err := a.store.FindUserByID(r.Context(), r.PathValue("id"), roleDoctor)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "doctor not found")
+		writeError(w, http.StatusNotFound, "doctor no encontrado")
 		return
 	}
 	writeJSON(w, http.StatusOK, user)

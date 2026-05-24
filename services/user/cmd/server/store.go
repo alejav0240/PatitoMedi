@@ -115,5 +115,5 @@ func (s userStore) CreateSession(ctx context.Context, id string, userID string, 
 }
 
 func isUniqueViolation(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "duplicate key")
+	return err != nil && strings.Contains(err.Error(), "Id único violado")
 }

@@ -11,15 +11,15 @@ func TestSignAndParseToken(t *testing.T) {
 
 	token, err := a.signToken(user)
 	if err != nil {
-		t.Fatalf("signToken returned error: %v", err)
+		t.Fatalf("Error signing token: %v", err)
 	}
 
 	claims, err := a.parseToken(token)
 	if err != nil {
-		t.Fatalf("parseToken returned error: %v", err)
+		t.Fatalf("Error parsing token: %v", err)
 	}
 	if claims.Subject != user.ID || claims.Email != user.Email || claims.Role != user.Role {
-		t.Fatalf("unexpected claims: %+v", claims)
+		t.Fatalf("Error Inesperado : %+v", claims)
 	}
 }
 
@@ -29,11 +29,11 @@ func TestParseTokenRejectsWrongSecret(t *testing.T) {
 
 	token, err := signer.signToken(userResponse{ID: "user-1", Email: "ana@example.com", Role: rolePatient})
 	if err != nil {
-		t.Fatalf("signToken returned error: %v", err)
+		t.Fatalf("Error signing token: %v", err)
 	}
 
 	if _, err := verifier.parseToken(token); err == nil {
-		t.Fatal("expected token to be rejected with wrong secret")
+		t.Fatal("Se esperaba que el token fuera rechazado con una clave secreta incorrecta.")
 	}
 }
 
@@ -42,10 +42,10 @@ func TestParseTokenRejectsExpiredToken(t *testing.T) {
 
 	token, err := a.signToken(userResponse{ID: "user-1", Email: "ana@example.com", Role: rolePatient})
 	if err != nil {
-		t.Fatalf("signToken returned error: %v", err)
+		t.Fatalf("Error signing token: %v", err)
 	}
 
 	if _, err := a.parseToken(token); err == nil {
-		t.Fatal("expected expired token to be rejected")
+		t.Fatal("Se esperaba que el token expirado fuera rechazado")
 	}
 }

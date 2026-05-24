@@ -13,7 +13,7 @@ func TestRequireAuthRejectsMissingBearerToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	a.requireAuth(func(w http.ResponseWriter, r *http.Request, c claims) {
-		t.Fatal("handler should not be called without bearer token")
+		t.Fatal("handler should not be called when token is missing")
 	})(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {

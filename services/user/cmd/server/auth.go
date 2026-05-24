@@ -37,13 +37,13 @@ func (a *app) parseToken(token string) (claims, error) {
 	var c claims
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return c, errors.New("invalid token")
+		return c, errors.New("Token Invalido: se esperaba formato header.payload.signature")
 	}
 
 	unsigned := parts[0] + "." + parts[1]
 	expected := base64.RawURLEncoding.EncodeToString(hmacSHA256(unsigned, a.cfg.JWTSecret))
 	if !hmac.Equal([]byte(expected), []byte(parts[2])) {
-		return c, errors.New("invalid signature")
+		return c, errors.New("Token Invalido: firma inválida")
 	}
 
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
@@ -54,7 +54,7 @@ func (a *app) parseToken(token string) (claims, error) {
 		return c, err
 	}
 	if c.Issuer != a.cfg.JWTIssuer || c.Expires < time.Now().Unix() {
-		return c, errors.New("expired or invalid issuer")
+		return c, errors.New("Token Invalido: issuer expirado o inválido")
 	}
 	return c, nil
 }
@@ -64,12 +64,12 @@ func (a *app) requireAuth(next func(http.ResponseWriter, *http.Request, claims))
 		auth := r.Header.Get("Authorization")
 		token := strings.TrimPrefix(auth, "Bearer ")
 		if token == auth || token == "" {
-			writeError(w, http.StatusUnauthorized, "bearer token is required")
+			writeError(w, http.StatusUnauthorized, "Token bearer es requerido")
 			return
 		}
 		c, err := a.parseToken(token)
 		if err != nil {
-			writeError(w, http.StatusUnauthorized, "invalid token")
+			writeError(w, http.StatusUnauthorized, "Token Invalido: " + err.Error())
 			return
 		}
 		next(w, r, c)
