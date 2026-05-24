@@ -1,0 +1,3 @@
+ALTER TABLE appointments
+    ADD COLUMN IF NOT EXISTS slot_id UUID REFERENCES slots(id),
+    ADD COLUMN IF NOT EXISTS notes   TEXT;

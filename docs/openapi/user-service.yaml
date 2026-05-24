@@ -1,0 +1,373 @@
+openapi: 3.1.0
+info:
+  title: User Service
+  version: 1.0.0
+  description: Identidad, autenticación y perfiles de pacientes y médicos.
+  contact:
+    email: cra2028252@est.univalle.edu
+
+servers:
+  - url: http://localhost/api/users
+    description: Vía Nginx → Kong (local)
+  - url: http://localhost:8000/api/users
+    description: Directo a Kong (local)
+
+tags:
+  - name: Auth
+    description: Registro y autenticación
+  - name: Profile
+    description: Perfil del usuario autenticado
+  - name: Doctors
+    description: Consulta de médicos
+  - name: Observability
+    description: Health y métricas
+
+paths:
+  /register/patient:
+    post:
+      description: Registrar un nuevo paciente
+      summary: Registrar paciente
+      operationId: registerPatient
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPatientRequest'
+            example:
+              email: ana@example.com
+              password: password123
+              full_name: Ana Pérez
+      responses:
+        '201':
+          description: Paciente creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /register/doctor:
+    post:
+      description: Registrar un nuevo doctor
+      summary: Registrar médico
+      operationId: registerDoctor
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDoctorRequest'
+            example:
+              email: dr.gomez@example.com
+              password: password123
+              full_name: Dr. Gómez
+              specialty: Cardiología
+      responses:
+        '201':
+          description: Médico creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /login:
+    post:
+      description: Inicio de sesion 
+      summary: Login
+      operationId: login
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: ana@example.com
+              password: password123
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /logout:
+    post:
+      description: Cierre de sesion
+      summary: Logout
+      operationId: logout
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sesión cerrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me:
+    get:
+      description: Informacion del paciente loguedo 
+      summary: Obtener perfil autenticado
+      operationId: getMe
+      tags: [Profile]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Perfil del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      description: Actualizar perfil
+      operationId: updateMe
+      tags: [Profile]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+            example:
+              full_name: Ana Pérez López
+      responses:
+        '200':
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /doctors:
+    get:
+      description: Listar médicos
+      operationId: listDoctors
+      tags: [Doctors]
+      responses:
+        '200':
+          description: Lista de médicos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  doctors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+
+  /doctors/{id}:
+    get:
+      description: Obtener médico por ID
+      operationId: getDoctor
+      tags: [Doctors]
+      parameters:
+        - $ref: '#/components/parameters/UUIDPath'
+      responses:
+        '200':
+          description: Médico encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /health:
+    get:
+      description: Health check
+      operationId: health
+      tags: [Observability]
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Servicio degradado
+
+  /metrics:
+    get:
+      description: Métricas Prometheus
+      operationId: metrics
+      tags: [Observability]
+      responses:
+        '200':
+          description: Métricas en formato text/plain
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UUIDPath:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Token ausente o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Email ya registrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    RegisterPatientRequest:
+      type: object
+      required: [email, password, full_name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        full_name:
+          type: string
+
+    RegisterDoctorRequest:
+      type: object
+      required: [email, password, full_name, specialty]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        full_name:
+          type: string
+        specialty:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    UpdateProfileRequest:
+      type: object
+      required: [full_name]
+      properties:
+        full_name:
+          type: string
+        specialty:
+          type: string
+          description: Solo requerido para médicos
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        role:
+          type: string
+          enum: [patient, doctor]
+        specialty:
+          type: string
+          description: Solo presente para médicos
+        created_at:
+          type: string
+          format: date-time
+
+    StatusOk:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: user
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string

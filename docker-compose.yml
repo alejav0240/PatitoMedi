@@ -1,6 +1,7 @@
 name: ${COMPOSE_PROJECT_NAME:-patitomedi}
 
 services:
+# infraestructura - servicios de borde
   nginx:
     image: nginx:1.27-alpine
     container_name: ${CONTAINER_PREFIX:-patitomedi}-nginx
@@ -32,10 +33,10 @@ services:
       - ./infra/kong/kong.yml:/kong/declarative/kong.yml:ro
     depends_on:
       - user-service
-      - appointments-service
-      - payments-service
-      - medical-history-service
-      - video-call-service
+      #- appointments-service
+      #- payments-service
+      #- medical-history-service
+      #- video-call-service
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 10s
@@ -70,30 +71,60 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    # ports:
+    #   - "${USER_SERVICE_PORT:-8080}:8080"
     networks:
       - backend
-
+# microservicios - servicios internos
   appointments-service:
-    image: hashicorp/http-echo:1.0
+    build:
+      context: ./services/appointments
     container_name: ${CONTAINER_PREFIX:-patitomedi}-appointments-service
-    command: ["-listen=:8080", "-text={\"service\":\"appointments\",\"stack\":\"spring-boot\",\"protocol\":\"REST\"}"]
+    environment:
+      DATABASE_URL: jdbc:postgresql://appointments-db:5432/${APPOINTMENTS_DB_NAME:-appointments}
+      DATABASE_USER: ${APPOINTMENTS_DB_USER:-appointments_app}
+      DATABASE_PASSWORD: ${APPOINTMENTS_DB_PASSWORD:-appointments_pass}
+      KAFKA_BROKERS: kafka:9092
     depends_on:
       appointments-db:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
     networks:
       - backend
 
   payments-service:
-    image: hashicorp/http-echo:1.0
+    build:
+      context: ./services/payments
     container_name: ${CONTAINER_PREFIX:-patitomedi}-payments-service
-    command: ["-listen=:8080", "-text={\"service\":\"payments\",\"stack\":\"django\",\"protocol\":\"REST\"}"]
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8080"]
+    environment:
+      DJANGO_DEBUG: ${PAYMENTS_SERVICE_DEBUG:-1}
+      PAYMENTS_DB_ENGINE: django.db.backends.postgresql
+      PAYMENTS_DB_NAME: ${PAYMENTS_DB_NAME:-payments}
+      PAYMENTS_DB_USER: ${PAYMENTS_DB_USER:-payments_app}
+      PAYMENTS_DB_PASSWORD: ${PAYMENTS_DB_PASSWORD:-payments_pass}
+      PAYMENTS_DB_HOST: payments-db
+      PAYMENTS_DB_PORT: 5432
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_ENABLED: ${PAYMENTS_SERVICE_KAFKA_ENABLED:-true}
     depends_on:
       payments-db:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - backend
 
@@ -123,6 +154,7 @@ services:
     networks:
       - backend
 
+# Databases de datos
   users-db:
     image: postgres:16-alpine
     container_name: ${CONTAINER_PREFIX:-patitomedi}-users-db
@@ -221,6 +253,7 @@ services:
     networks:
       - backend
 
+# comunicación entre servicios
   kafka:
     image: apache/kafka:3.7.0
     container_name: ${CONTAINER_PREFIX:-patitomedi}-kafka
@@ -265,6 +298,12 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic user-updated --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic session-created --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic session-ended --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic appointment-created --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic appointment-cancelled --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic invoice-created --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic payment-confirmed --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic payment-failed --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic refund-created --partitions 3 --replication-factor 1
     networks:
       - backend
 
@@ -281,6 +320,7 @@ services:
     networks:
       - backend
 
+  # Herramientas de monitoreo
   prometheus:
     image: prom/prometheus:v2.53.0
     container_name: ${CONTAINER_PREFIX:-patitomedi}-prometheus
