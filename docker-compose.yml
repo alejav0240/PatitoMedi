@@ -129,14 +129,24 @@ services:
       - backend
 
   medical-history-service:
-    image: hashicorp/http-echo:1.0
+    build:
+      context: ./services/medical-history
     container_name: ${CONTAINER_PREFIX:-patitomedi}-medical-history-service
-    command: ["-listen=:8080", "-text={\"service\":\"medical-history\",\"stack\":\"express\",\"protocol\":\"GraphQL\"}"]
+    command: ["sh", "-c", "npm install --production && npm start"]
+    environment:
+      PORT: 8080
+      MONGO_URI: mongodb://medical-records-db:27017/${MEDICAL_RECORDS_DB_NAME:-medical_records}
     depends_on:
       medical-records-db:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - backend
 

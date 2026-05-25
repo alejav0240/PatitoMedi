@@ -35,8 +35,8 @@ This repository is organized around the architecture described in the README:
 
 - `GET /api/users`: user service stub.
 - `GET /api/appointments`: appointments service stub.
-- `GET /api/payments`: payments service stub.
+- `GET /api/payments`: payments service route behind Kong.
 - `GET /graphql/medical-history`: medical history GraphQL service stub.
 - `GET /ws/video`: video signaling service stub.
 
-The current compose file uses lightweight HTTP echo containers for the domain services. Replace each stub with a `build:` section when the real service implementation exists.
+The current compose file uses lightweight HTTP echo containers for some domain services, but `services/payments` is implemented and exposed through Kong at `/api/payments/*`. Replace the remaining stubs with a `build:` section when each real service implementation exists.

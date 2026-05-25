@@ -1,0 +1,208 @@
+openapi: 3.1.0
+info:
+  title: Medical History Service
+  version: 1.0.0
+  description: |
+    Historial clínico de pacientes. Expone una API GraphQL sobre HTTP.
+    Todas las operaciones (queries y mutations) se envían como `POST` al endpoint `/graphql/medical-history`.
+  contact:
+    email: cra2028252@est.univalle.edu
+
+servers:
+  - url: http://localhost
+    description: Vía Nginx → Kong (local)
+  - url: http://localhost:8000
+    description: Directo a Kong (local)
+
+tags:
+  - name: GraphQL
+    description: Endpoint único GraphQL
+  - name: Observability
+    description: Health check
+
+paths:
+  /graphql/medical-history:
+    post:
+      description: Endpoint GraphQL
+      operationId: graphql
+      tags: [GraphQL]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GraphQLRequest'
+            examples:
+              query_patient_records:
+                description: "Query: registros de un paciente"
+                value:
+                  query: |
+                    query {
+                      patientRecords(patientId: "00000000-0000-0000-0000-000000000001") {
+                        id
+                        patientId
+                        bloodType
+                        allergies
+                        chronicDiseases
+                        medications
+                        notes
+                        createdAt
+                        updatedAt
+                      }
+                    }
+              query_record_by_id:
+                description: "Query: registro por ID"
+                value:
+                  query: |
+                    query {
+                      record(id: "64a1b2c3d4e5f6a7b8c9d0e1") {
+                        id
+                        patientId
+                        bloodType
+                        allergies
+                        chronicDiseases
+                        medications
+                        notes
+                      }
+                    }
+              query_health:
+                description: "Query: health GraphQL"
+                value:
+                  query: |
+                    query {
+                      healthGraphQL
+                    }
+              mutation_create_record:
+                description: "Mutation: crear registro clínico"
+                value:
+                  query: |
+                    mutation {
+                      createRecord(input: {
+                        patientId: "00000000-0000-0000-0000-000000000001"
+                        bloodType: "O+"
+                        allergies: ["penicilina"]
+                        chronicDiseases: ["hipertensión"]
+                        medications: ["enalapril 10mg"]
+                        notes: ["Paciente estable"]
+                      }) {
+                        id
+                        createdAt
+                      }
+                    }
+              mutation_update_record:
+                description: "Mutation: actualizar registro clínico"
+                value:
+                  query: |
+                    mutation {
+                      updateRecord(
+                        id: "64a1b2c3d4e5f6a7b8c9d0e1"
+                        input: {
+                          patientId: "00000000-0000-0000-0000-000000000001"
+                          medications: ["enalapril 20mg"]
+                          notes: ["Dosis ajustada"]
+                        }
+                      ) {
+                        id
+                        updatedAt
+                      }
+                    }
+      responses:
+        '200':
+          description: Respuesta GraphQL (errores también retornan 200)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphQLResponse'
+
+  /health:
+    get:
+      description: Health check REST
+      operationId: health
+      tags: [Observability]
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: medical-history
+
+components:
+  schemas:
+    GraphQLRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          description: Query o mutation GraphQL
+        variables:
+          type: object
+          description: Variables opcionales para la operación
+        operationName:
+          type: string
+
+    GraphQLResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          description: Resultado de la operación
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+              locations:
+                type: array
+                items:
+                  type: object
+              path:
+                type: array
+                items:
+                  type: string
+
+    ClinicalRecord:
+      type: object
+      description: Registro clínico de un paciente (schema GraphQL)
+      properties:
+        id:
+          type: string
+          description: ID MongoDB
+        patientId:
+          type: string
+          format: uuid
+        bloodType:
+          type: string
+          example: "O+"
+        allergies:
+          type: array
+          items:
+            type: string
+        chronicDiseases:
+          type: array
+          items:
+            type: string
+        medications:
+          type: array
+          items:
+            type: string
+        notes:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

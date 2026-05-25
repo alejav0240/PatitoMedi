@@ -32,7 +32,7 @@ services:
       - name: medical-history-graphql
         paths:
           - /graphql/medical-history
-        strip_path: true
+        strip_path: false
 
   - name: video-call-service
     url: http://video-call-service:8080
