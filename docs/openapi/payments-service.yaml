@@ -1,0 +1,367 @@
+openapi: 3.1.0
+info:
+  title: Payments Service
+  version: 1.0.0
+  description: Facturación, procesamiento de pagos simulados y reembolsos.
+  contact:
+    email: cra2028252@est.univalle.edu
+
+servers:
+  - url: http://localhost/api/payments
+    description: Vía Nginx → Kong (local)
+  - url: http://localhost:8000/api/payments
+    description: Directo a Kong (local)
+
+tags:
+  - name: Invoices
+    description: Facturas por cita
+  - name: Transactions
+    description: Transacciones de pago
+  - name: Refunds
+    description: Reembolsos
+  - name: Webhooks
+    description: Eventos de proveedor externo
+  - name: Observability
+    description: Health y métricas
+
+paths:
+  /invoices:
+    post:
+      description: Crear factura
+      operationId: createInvoice
+      tags: [Invoices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvoiceRequest'
+            example:
+              appointment_id: 00000000-0000-0000-0000-000000000001
+              patient_id:     00000000-0000-0000-0000-000000000002
+              doctor_id:      00000000-0000-0000-0000-000000000003
+              amount: "50.00"
+              currency: USD
+      responses:
+        '201':
+          description: Factura creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /invoices/{id}:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPath'
+    get:
+      description: Obtener factura
+      operationId: getInvoice
+      tags: [Invoices]
+      responses:
+        '200':
+          description: Factura encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /transactions:
+    post:
+      description: Procesar pago
+      operationId: createTransaction
+      tags: [Transactions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionRequest'
+            example:
+              invoice_id: 00000000-0000-0000-0000-000000000001
+              simulate_outcome: approved
+      responses:
+        '201':
+          description: Transacción procesada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /transactions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/UUIDPath'
+    get:
+      description: Obtener transacción
+      operationId: getTransaction
+      tags: [Transactions]
+      responses:
+        '200':
+          description: Transacción encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /refunds:
+    post:
+      description: Crear reembolso
+      operationId: createRefund
+      tags: [Refunds]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRefundRequest'
+            example:
+              transaction_id: 00000000-0000-0000-0000-000000000001
+              amount: "50.00"
+              reason: Cita cancelada
+      responses:
+        '201':
+          description: Reembolso creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /webhooks/provider:
+    post:
+      description: Webhook de proveedor externo
+      operationId: providerWebhook
+      tags: [Webhooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRequest'
+            examples:
+              payment_succeeded:
+                description: Pago aprobado
+                value:
+                  event_type: payment.succeeded
+                  payload:
+                    transaction_id: 00000000-0000-0000-0000-000000000001
+              payment_failed:
+                description: Pago fallido
+                value:
+                  event_type: payment.failed
+                  payload:
+                    transaction_id: 00000000-0000-0000-0000-000000000001
+      responses:
+        '202':
+          description: Evento aceptado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:
+                    type: boolean
+                  event_type:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /health:
+    get:
+      description: Health check
+      operationId: health
+      tags: [Observability]
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Servicio degradado
+
+  /metrics:
+    get:
+      description: Métricas Prometheus
+      operationId: metrics
+      tags: [Observability]
+      responses:
+        '200':
+          description: Métricas en formato text/plain
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  parameters:
+    UUIDPath:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    CreateInvoiceRequest:
+      type: object
+      required: [appointment_id, amount]
+      properties:
+        appointment_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          example: "50.00"
+        currency:
+          type: string
+          default: USD
+        metadata:
+          type: object
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        appointment_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        doctor_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [issued, paid, cancelled]
+        external_reference:
+          type: string
+
+    CreateTransactionRequest:
+      type: object
+      required: [invoice_id]
+      properties:
+        invoice_id:
+          type: string
+          format: uuid
+        simulate_outcome:
+          type: string
+          enum: [approved, failed]
+          default: approved
+        provider_reference:
+          type: string
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, failed, refunded]
+        provider_reference:
+          type: string
+
+    CreateRefundRequest:
+      type: object
+      required: [transaction_id]
+      properties:
+        transaction_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        reason:
+          type: string
+
+    Refund:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transaction_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        status:
+          type: string
+          enum: [requested, processed, failed]
+        provider_reference:
+          type: string
+
+    WebhookRequest:
+      type: object
+      required: [event_type]
+      properties:
+        event_type:
+          type: string
+          enum: [payment.succeeded, payment.confirmed, payment.failed, refund.succeeded]
+        payload:
+          type: object
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        database:
+          type: string
+          example: up
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
