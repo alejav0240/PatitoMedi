@@ -127,6 +127,8 @@ Header: `Authorization: Bearer <token>`
 **Gateway base:** `/api/payments`  
 **Estado:** ✅ Implementado
 
+El servicio responde a través de Kong en `/api/payments/*` y, dentro del contenedor, expone las mismas rutas sin ese prefijo. Para pruebas locales directas contra el contenedor, usa `/health`, `/metrics`, `/invoices`, `/transactions`, `/refunds` y `/webhooks/provider`.
+
 ### Endpoints
 
 | Método | Ruta | Descripción |
@@ -147,16 +149,18 @@ Header: `Authorization: Bearer <token>`
   "patient_id":     "<uuid>",
   "doctor_id":      "<uuid>",
   "amount":         "50.00",
-  "currency":       "USD"
+  "currency":       "USD",
+  "metadata":       {}
 }
 ```
 
 **POST /transactions — body**
 ```json
 {
-  "invoice_id":        "<uuid>",
-  "simulate_outcome":  "approved",
-  "provider_reference": "prov_abc123"
+  "invoice_id":         "<uuid>",
+  "simulate_outcome":    "approved",
+  "provider_reference":  "prov_abc123",
+  "provider_payload":    {}
 }
 ```
 `simulate_outcome`: `"approved"` | `"failed"`
@@ -164,20 +168,31 @@ Header: `Authorization: Bearer <token>`
 **POST /refunds — body**
 ```json
 {
-  "transaction_id": "<uuid>",
-  "amount":         "50.00",
-  "reason":         "Cita cancelada"
+  "transaction_id":   "<uuid>",
+  "amount":           "50.00",
+  "reason":           "Cita cancelada",
+  "provider_reference": "refund_abc123",
+  "provider_payload":  {}
 }
 ```
 
 **POST /webhooks/provider — body**
 ```json
 {
-  "event_type": "payment.succeeded",
-  "payload": { "transaction_id": "<uuid>" }
+  "event_type": "payment.confirmed",
+  "payload": {
+    "transaction_id": "<uuid>",
+    "provider_reference": "prov_abc123"
+  }
 }
 ```
 `event_type`: `payment.succeeded` | `payment.confirmed` | `payment.failed` | `refund.succeeded`
+
+### Webhook behavior
+
+- `payment.succeeded` y `payment.confirmed`: marcan la transacción como `approved` y la factura asociada como `paid`.
+- `payment.failed`: marca la transacción como `failed`.
+- `refund.succeeded`: marca el reembolso como `processed`.
 
 ### Statuses
 
@@ -187,14 +202,21 @@ Header: `Authorization: Bearer <token>`
 | Transaction | `pending` → `approved` / `failed` / `refunded` |
 | Refund | `requested` → `processed` / `failed` |
 
----
+### Observaciones de integración
 
+- `POST /api/payments/invoices` crea la factura y publica `invoice-created`.
+- `POST /api/payments/transactions` publica `payment-confirmed` o `payment-failed` según `simulate_outcome`.
+- `POST /api/payments/refunds` publica `refund-created`.
+- `GET /health` comprueba conectividad con PostgreSQL.
+- `GET /metrics` expone contadores HTTP, facturas, transacciones, reembolsos y latencia del simulador.
 ## Medical History Service
 
 **Stack:** Node.js · Express · Apollo Server · MongoDB · Kafka  
 **Gateway base:** `/graphql/medical-history`  
 **Protocolo:** GraphQL (POST)  
 **Estado:** ✅ Implementado
+
+Más detalles y ejemplos de queries/mutations: [Medical History docs](docs/medical-history.md)
 
 ### Endpoint
 
@@ -289,11 +311,13 @@ mutation {
 
 **Stack:** Go · WebSocket · Redis · coturn · Kafka  
 **Gateway base:** `/ws/video`  
-**Estado:** 🔲 Pendiente (stub)
+**Estado:** ✅ Implementado
+
+Más detalles, flujo completo y configuración ICE: [Video Call docs](video-call.md)
 
 ### Protocolo WebSocket
 
-Conexión: `ws://localhost/ws/video`
+Conexión: `ws://localhost:8000/ws/video`
 
 ### Mensajes (JSON)
 
@@ -301,10 +325,11 @@ Conexión: `ws://localhost/ws/video`
 |------|-----------|-------------|
 | `join-room` | Cliente → Servidor | Unirse a sala de una cita |
 | `leave-room` | Cliente → Servidor | Abandonar sala |
-| `offer` | Cliente → Servidor | Oferta SDP WebRTC |
-| `answer` | Cliente → Servidor | Respuesta SDP WebRTC |
-| `ice-candidate` | Cliente ↔ Servidor | Candidato ICE |
+| `offer` | Cliente → Servidor | Oferta SDP WebRTC (enrutada al peer `to`) |
+| `answer` | Cliente → Servidor | Respuesta SDP WebRTC (enrutada al peer `to`) |
+| `ice-candidate` | Cliente ↔ Servidor | Candidato ICE (enrutado al peer `to`) |
 | `call-ended` | Cliente → Servidor | Finalizar llamada |
+| `error` | Servidor → Cliente | Error de señalización |
 
 **join-room**
 ```json
@@ -318,8 +343,15 @@ Conexión: `ws://localhost/ws/video`
 
 **ice-candidate**
 ```json
-{ "type": "ice-candidate", "candidate": "<candidate-string>", "to": "<peer-userId>" }
+{ "type": "ice-candidate", "candidate": "<candidate-string>", "sdpMid": "0", "sdpMLineIndex": 0, "to": "<peer-userId>" }
 ```
+
+### Observabilidad
+
+| Ruta | Descripción |
+|------|-------------|
+| `GET /health` | `{"status":"ok","service":"video-call"}` |
+| `GET /metrics` | `video_active_rooms`, `video_active_participants`, `video_calls_total` |
 
 ---
 

@@ -36,7 +36,7 @@ services:
       #- appointments-service
       #- payments-service
       #- medical-history-service
-      #- video-call-service
+      - video-call-service
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 10s
@@ -151,16 +151,26 @@ services:
       - backend
 
   video-call-service:
-    image: hashicorp/http-echo:1.0
+    build:
+      context: ./services/video-call
     container_name: ${CONTAINER_PREFIX:-patitomedi}-video-call-service
-    command: ["-listen=:8080", "-text={\"service\":\"video-call\",\"stack\":\"golang\",\"protocol\":\"WebSocket signaling\"}"]
+    environment:
+      PORT: 8080
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:9092
     depends_on:
       redis:
         condition: service_healthy
-      kafka:
-        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
       coturn:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - backend
 
@@ -314,6 +324,9 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic payment-confirmed --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic payment-failed --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic refund-created --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic call-started --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic call-ended --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic call-failed --partitions 3 --replication-factor 1
     networks:
       - backend
 

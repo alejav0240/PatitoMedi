@@ -40,7 +40,7 @@ services:
       - name: video-call-websocket
         paths:
           - /ws/video
-        strip_path: true
+        strip_path: false
         protocols:
           - http
           - https

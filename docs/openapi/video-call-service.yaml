@@ -1,0 +1,204 @@
+openapi: 3.1.0
+info:
+  title: Video Call Service
+  version: 1.0.0
+  description: |
+    Señalización WebRTC para video llamadas médicas.
+
+    **Protocolo principal:** WebSocket (`ws://localhost/ws/video`).
+    Los mensajes se intercambian como JSON sobre la conexión WebSocket.
+
+    Este archivo documenta el endpoint de conexión y los mensajes del protocolo.
+    El servicio está pendiente de implementación (actualmente stub).
+  contact:
+    email:  cra2028252@est.univalle.edu
+
+servers:
+  - url: http://localhost
+    description: Vía Nginx → Kong (local)
+  - url: http://localhost:8000
+    description: Directo a Kong (local)
+
+tags:
+  - name: WebSocket
+    description: Conexión y protocolo de señalización
+  - name: Observability5
+    description: Health y métricas
+
+paths:
+  /ws/video:
+    get:
+      summary: Conectar al servicio de video (WebSocket Upgrade)
+      operationId: connectWebSocket
+      tags: [WebSocket]
+      description: |
+        Inicia una conexión WebSocket. El cliente debe enviar el header `Upgrade: websocket`.
+
+        Una vez conectado, el cliente intercambia mensajes JSON con la siguiente estructura:
+        ```json
+        { "type": "<tipo>", ...campos }
+        ```
+
+        ### Tipos de mensajes
+
+        | Tipo | Dirección | Descripción |
+        |------|-----------|-------------|
+        | `join-room` | Cliente → Servidor | Unirse a sala de una cita |
+        | `leave-room` | Cliente → Servidor | Abandonar sala |
+        | `offer` | Cliente → Servidor | Oferta SDP WebRTC |
+        | `answer` | Cliente → Servidor | Respuesta SDP WebRTC |
+        | `ice-candidate` | Cliente ↔ Servidor | Candidato ICE |
+        | `call-ended` | Cliente → Servidor | Finalizar llamada |
+        | `error` | Servidor → Cliente | Error de señalización |
+
+      parameters:
+        - in: header
+          name: Upgrade
+          required: true
+          schema:
+            type: string
+            enum: [websocket]
+        - in: header
+          name: Connection
+          required: true
+          schema:
+            type: string
+            enum: [Upgrade]
+      responses:
+        '101':
+          description: Switching Protocols — conexión WebSocket establecida
+        '400':
+          description: Upgrade inválido
+
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      tags: [Observability]
+      responses:
+        '200':
+          description: Servicio saludable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: video-call
+
+  /metrics:
+    get:
+      summary: Métricas Prometheus
+      operationId: metrics
+      tags: [Observability]
+      responses:
+        '200':
+          description: Métricas en formato text/plain
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    WsJoinRoom:
+      type: object
+      required: [type, appointmentId, userId]
+      properties:
+        type:
+          type: string
+          enum: [join-room]
+        appointmentId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+      example:
+        type: join-room
+        appointmentId: 00000000-0000-0000-0000-000000000001
+        userId: 00000000-0000-0000-0000-000000000002
+
+    WsLeaveRoom:
+      type: object
+      required: [type, appointmentId, userId]
+      properties:
+        type:
+          type: string
+          enum: [leave-room]
+        appointmentId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+
+    WsOffer:
+      type: object
+      required: [type, sdp, to]
+      properties:
+        type:
+          type: string
+          enum: [offer]
+        sdp:
+          type: string
+          description: SDP offer string
+        to:
+          type: string
+          format: uuid
+          description: userId del peer destino
+
+    WsAnswer:
+      type: object
+      required: [type, sdp, to]
+      properties:
+        type:
+          type: string
+          enum: [answer]
+        sdp:
+          type: string
+          description: SDP answer string
+        to:
+          type: string
+          format: uuid
+
+    WsIceCandidate:
+      type: object
+      required: [type, candidate, to]
+      properties:
+        type:
+          type: string
+          enum: [ice-candidate]
+        candidate:
+          type: string
+        sdpMid:
+          type: string
+        sdpMLineIndex:
+          type: integer
+        to:
+          type: string
+          format: uuid
+
+    WsCallEnded:
+      type: object
+      required: [type, appointmentId]
+      properties:
+        type:
+          type: string
+          enum: [call-ended]
+        appointmentId:
+          type: string
+          format: uuid
+
+    WsError:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [error]
+        message:
+          type: string
